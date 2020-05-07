@@ -1,0 +1,43 @@
+
+input_number:
+  servo_control:
+    name: Servo Control
+    icon: mdi:timer
+    initial: -100
+    min: -100
+    max: 100
+    step: 10
+    mode: slider
+  living_target:
+    name: Temp Living
+    min: 16
+    max: 24
+    step: 2
+    unit_of_measurement: C
+    icon: mdi:target
+
+mqtt:
+  broker: 192.168.0.100
+
+automation:
+  - alias: Write Servo Value to ESP
+    trigger:
+      platform: state
+      entity_id: input_number.servo_control
+    action:
+      # Replace livingroom with the name you gave the ESP
+      - service: esphome.servoheat_control_servo
+        data_template:
+          level: '{{ states.input_number.servo_control.state | int }}'
+  - alias: Heater mqtt
+    hide_entity: True
+    trigger:
+      platform: state
+      entity_id: input_number.heater
+    action:
+      service: mqtt.publish
+      data_template:
+        topic: '/home/command/heater'
+        retain: true
+        payload: "{{ states.input_number.heater.state | int }}"
+  
