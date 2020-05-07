@@ -1,0 +1,116 @@
+esphome:
+  name: servoheat
+  platform: ESP8266
+  board: nodemcuv2
+  on_boot:
+    priority: -10
+    then:
+      - logger.log: "Booting = setting to Off"
+      - lambda: |-
+          id(servo_val) = 1;
+      - script.execute: update_servo
+ 
+wifi:
+  ssid: klapper2
+  password: --
+  
+
+web_server:
+  port: 80
+logger:
+ota:
+api:
+  services:
+    - service: control_servo
+      variables:
+        level: float
+      then:
+        - logger.log: "control servo called"
+        - lambda: |-
+            id(servo_val) = 0-level/100;
+        - script.execute: update_servo
+    - service: servo_on
+      then:
+        - logger.log: "servo full on"
+        - lambda: |-
+            id(servo_val) = -1;
+        - script.execute: update_servo
+    - service: servo_off
+      then:
+        - logger.log: "servo full off"
+        - lambda: |-
+            id(servo_val) = 1;
+        - script.execute: update_servo
+
+globals:
+   - id: servo_val
+     type: float
+     restore_value: yes
+     initial_value: '1'
+
+script:
+  - id: update_servo
+    then:
+      - switch.turn_on: relay
+      - lambda: |-
+            id(my_servo).write(id(servo_val));
+      - component.update: servo_sensor
+      - delay: 2s
+      - switch.turn_off: relay
+
+servo:
+  - id: my_servo
+    output: pwm_output
+    
+sensor:
+  - platform: template
+    id: servo_sensor
+    name: "Servo Val"
+    lambda: |-
+      return -id(servo_val);
+    update_interval: 60s
+
+switch:
+- platform: gpio
+  id: relay
+  name: "Relay"
+  pin: D0
+
+- platform: gpio
+  id: test100
+  name: "Servo 100%"
+  pin: D8
+  on_turn_on:
+    - logger.log: "On: Servo to 50%"
+    - lambda: |-
+            id(servo_val) = -1;
+    - script.execute: update_servo
+  on_turn_off:
+    - logger.log: "Off: Servo to 0"
+    - lambda: |-
+        id(servo_val) = 1;
+    - script.execute: update_servo
+    - switch.turn_off: test50
+
+- platform: gpio
+  id: test50
+  name: "Servo 50%"
+  pin: D8
+  on_turn_on:
+    - logger.log: "On: Servo to 50%"
+    - lambda: |-
+            id(servo_val) = 0;
+    - script.execute: update_servo
+  on_turn_off:
+    - logger.log: "Off: Servo to 0"
+    - lambda: |-
+        id(servo_val) = 1;
+    - script.execute: update_servo
+    - switch.turn_off: test100
+  
+
+output:
+  - platform: esp8266_pwm
+    id: pwm_output
+    pin: D3
+    frequency: 50 Hz
